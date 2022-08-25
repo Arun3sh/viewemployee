@@ -1,4 +1,11 @@
-import { TextField, Button, FormGroup, Checkbox } from "@mui/material";
+import "./Adduser.css";
+import {
+  TextField,
+  Button,
+  FormGroup,
+  Checkbox,
+  FormHelperText,
+} from "@mui/material";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import Radio from "@mui/material/Radio";
@@ -6,15 +13,16 @@ import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
-import { useState } from "react";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import React, { useRef, useState } from "react";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+toast.configure();
 
 function Adduser() {
-  const submituser = () => {
-    console.log("submitting", values);
-  };
-
+  const [loc, setLoc] = useState([]);
   const handleRadioChange = (event) => {
     values.gender = event.target.value;
   };
@@ -23,41 +31,78 @@ function Adduser() {
     name: yup.string().required(),
     email: yup.string().email(),
     age: yup.number().min(18),
-    gender: yup.string(),
-    // preferredLocation: yup.string().required(),
+    gender: yup.string().required(),
+    preferredLocation: yup.array().min(1, "Minimun 2").required(),
+    profilepic: yup
+      .mixed()
+      .test("fileType", "unsupported Format", function (value) {
+        const SUPPORTED_FORMATS = ["image/jpg", "image/jpeg", "image/png"];
+        return SUPPORTED_FORMATS.includes(value.type);
+      })
+      .test("fileSize", "File Size is too large", (value) => {
+        const sizeInBytes = 500000;
+        return value.size <= sizeInBytes;
+      })
+      .required("Profile Picture Required"),
   });
 
-  const { values, handleSubmit, errors, touched, handleChange, handleBlur } =
-    useFormik({
-      initialValues: {
-        title: "Mr",
-        name: "",
-        email: "",
-        age: "",
-        gender: "female",
-        preferredLocation: "",
-      },
-      validationSchema: formValidationSchema,
-      onSubmit: () => submituser(),
-    });
+  const {
+    values,
+    setFieldValue,
+    handleSubmit,
+    errors,
+    touched,
+    handleChange,
+    handleBlur,
+    resetForm,
+  } = useFormik({
+    initialValues: {
+      title: "Mr",
+      name: "",
+      email: "",
+      age: "",
+      gender: "other",
+      preferredLocation: [],
+      profilepic: null,
+    },
+    validationSchema: formValidationSchema,
+    onSubmit: () => submituser(),
+  });
 
-  //     multiselect - preferred location
-  // image - upload
+  let pl = ["Coimbatore", "Chennai", "Madurai"];
+  let genderValue = ["Female", "Male", "Other"];
+  const [picture, setPicture] = useState(null);
+  const fileInput = useRef(null);
 
-  let pl = [{ Coimbatore: false }, { Chennai: false }, { Madurai: false }];
+  const handleLocationChange = (event) => {
+    let index = loc.indexOf(event.target.value);
+    values.preferredLocation = [];
+    if (index === -1) {
+      setLoc([...loc, event.target.value]);
+    } else {
+      setLoc(loc.filter((e) => e !== event.target.value));
+    }
 
-  const handleSelectChange = (event) => {
-    pl.map((e) => {
-      e = event.target.value;
-    });
-    console.log(event.target.value, pl);
+    values.preferredLocation.push(...loc);
   };
 
+  const handleFileChange = (event) => {
+    setFieldValue("profilepic", event.target.files[0]);
+    setPicture(event.target.files[0]);
+  };
+  const submituser = () => {
+    values.preferredLocation = loc;
+    console.log("submitting", values, picture);
+    toast.success("Employee Record added");
+    resetForm();
+  };
+  const [submitTried, setsubmitTried] = useState(false);
   return (
     <div className="container-sm adduser-container">
       <div className="adduser-wrapper">
         <form className="user-form" onSubmit={handleSubmit}>
           <Select
+            className="title-select"
             labelId="Employee-Title"
             id="Employee-Title"
             value={values.title}
@@ -71,6 +116,7 @@ function Adduser() {
           </Select>
 
           <TextField
+            className="emp-name"
             name="name"
             id="name"
             aria-label="Name"
@@ -85,6 +131,7 @@ function Adduser() {
           />
 
           <TextField
+            className="emp-email"
             name="email"
             id="email"
             aria-label="email"
@@ -99,6 +146,7 @@ function Adduser() {
           />
 
           <TextField
+            className="emp-age"
             name="age"
             id="age"
             aria-label="age"
@@ -117,52 +165,67 @@ function Adduser() {
             <RadioGroup
               className="radioGroup-userType"
               aria-label="type of user"
-              defaultValue="female"
+              defaultValue="Other"
               name="gender"
             >
-              <FormControlLabel
-                value="female"
-                control={<Radio />}
-                label="Female"
-              />
-              <FormControlLabel value="male" control={<Radio />} label="Male" />
-            </RadioGroup>
-          </FormControl>
-
-          <FormControl component="fieldset" onChange={handleSelectChange}>
-            <FormLabel component="legend">Preferred Location</FormLabel>
-            <FormGroup aria-label="position" row>
-              {pl.map((e, index) => (
+              {genderValue.map((gen, index) => (
                 <FormControlLabel
                   key={index}
-                  value={e}
-                  control={<Checkbox />}
-                  label={e}
+                  value={gen}
+                  control={<Radio />}
+                  label={gen}
+                />
+              ))}
+            </RadioGroup>
+            <FormHelperText>
+              {errors.gender && touched.gender ? errors.gender : ""}
+            </FormHelperText>
+          </FormControl>
+
+          <FormControl
+            component="fieldset"
+            error={values.preferredLocation.length !== 2}
+          >
+            <FormLabel component="legend">Preferred Location *</FormLabel>
+            <FormGroup className="emp-pl" aria-label="position" row>
+              {pl.map((city, index) => (
+                <FormControlLabel
+                  key={index}
+                  value={city}
+                  control={
+                    <Checkbox
+                      checked={loc.includes(city)}
+                      onChange={handleLocationChange}
+                    />
+                  }
+                  label={city}
                 />
               ))}
             </FormGroup>
+            <FormHelperText>
+              {errors.preferredLocation && touched.preferredLocation
+                ? errors.preferredLocation
+                : ""}
+            </FormHelperText>
           </FormControl>
 
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Preferred Location</FormLabel>
-            <FormGroup aria-label="position" row>
-              <FormControlLabel
-                value="Coimbatore"
-                control={<Checkbox />}
-                label="Coimbatore"
-              />
-              <FormControlLabel
-                value="Chennai"
-                control={<Checkbox />}
-                label="Chennai"
-              />
-              <FormControlLabel
-                value="Madurai"
-                control={<Checkbox />}
-                label="Madurai"
-              />
-            </FormGroup>
-          </FormControl>
+          <input
+            style={{ display: "none" }}
+            type="file"
+            onChange={handleFileChange}
+            ref={fileInput}
+          />
+
+          <p className={submitTried ? "error" : "helpertext"}>
+            Please select a Image below 0.5 MB, File format jpg, jpeg, png
+          </p>
+
+          <Button
+            onClick={() => fileInput.current.click() && setsubmitTried(true)}
+            variant="outlined"
+          >
+            Add Profile Picture *
+          </Button>
 
           <Button variant="outlined" type="submit">
             Submit
