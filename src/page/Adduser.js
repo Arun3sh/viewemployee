@@ -18,6 +18,9 @@ import MenuItem from "@mui/material/MenuItem";
 import React, { useRef, useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from "axios";
+import { API } from "../global";
+import { useHistory } from "react-router-dom";
 
 toast.configure();
 
@@ -26,7 +29,7 @@ function Adduser() {
   const handleRadioChange = (event) => {
     values.gender = event.target.value;
   };
-
+  const history = useHistory();
   const formValidationSchema = yup.object({
     name: yup.string().required(),
     email: yup.string().email(),
@@ -90,10 +93,26 @@ function Adduser() {
     setFieldValue("profilepic", event.target.files[0]);
     setPicture(event.target.files[0]);
   };
-  const submituser = () => {
+  const submituser = async () => {
     values.preferredLocation = loc;
-    console.log("submitting", values, picture);
-    toast.success("Employee Record added");
+    const formData = new FormData();
+    formData.append("file", picture);
+    formData.append("title", values.title);
+    formData.append("name", values.name);
+    formData.append("email", values.email);
+    formData.append("age", values.age);
+    formData.append("gender", values.gender);
+    formData.append("preferredLocation", values.preferredLocation);
+    // formData.append("Name", values.name);
+    console.log("submitting", formData);
+    await axios({
+      url: `${API}/add-employee`,
+      method: "POST",
+      data: formData,
+    })
+      .then(() => history.goBack())
+      .catch((err) => toast.error(err));
+
     resetForm();
   };
   const [submitTried, setsubmitTried] = useState(false);
@@ -212,6 +231,7 @@ function Adduser() {
           <input
             style={{ display: "none" }}
             type="file"
+            name="file"
             onChange={handleFileChange}
             ref={fileInput}
           />
